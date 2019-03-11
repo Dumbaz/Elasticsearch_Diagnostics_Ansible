@@ -1,0 +1,54 @@
+---
+# tasks file for cluster-diagnostics
+#- name: Download latest diagnostics
+#  get_url: 
+#    url: https://github.com/elastic/support-diagnostics/releases/download/6.4.4/support-diagnostics-6.4.4-dist.zip
+#    dest: files/support-diagnostics-6.4.4-dist.zip
+#  delegate_to: localhost
+#  run_once: true
+
+- name: push the support-diagnostics to the master node
+  copy:
+    src: files/support-diagnostics-6.4.4-dist.zip
+    dest: /tmp/support-diagnostics-6.4.4-dist.zip
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Unzip the support diagnostics
+  unarchive:
+    copy: no
+    src: /tmp/support-diagnostics-6.4.4-dist.zip
+    dest: /tmp
+    keep_newer: yes
+    list_files: yes
+
+- name: Run the diagnostics sh file
+  shell: "cd /tmp/support-diagnostics-6.4.4 && ./diagnostics.sh -u {{ elastic_user }} --ptp {{ elastic_password }} --host {{ inventory_hostname }} --port 9200 --ssl"
+  environment:
+    JAVA_HOME: /usr/bin/
+  register: diagnostics_output
+
+- name: print the diagnostics diagnostics command output
+  debug:
+    msg: "{{  diagnostics_output }}"
+  when: diagnostics_output is defined
+
+- name: find the diagnostics output file in the folder
+  find:
+    paths: /tmp/support-diagnostics-6.4.4/
+    patterns: 'diagnostics-*.tar.gz'
+    size: 1
+    file_type: file
+  register: find_result
+
+#- name: print find_result.files
+#  debug:
+#    msg: " {{ find_result.files }}"
+#  when: find_result is defined
+
+- name: copy the output directory to localhost
+  fetch:
+    src: "{{ item.path }}"
+    dest: "{{ role_path }}/files/{{ item.path | basename }}"
+  with_items: "{{ find_result.files }}"
