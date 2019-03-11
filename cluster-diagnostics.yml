@@ -1,0 +1,4 @@
+---
+- hosts: diagnostics
+  roles:
+    - cluster-diagnostics
